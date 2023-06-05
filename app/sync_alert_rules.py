@@ -73,17 +73,20 @@ def main(data="", context=""):
     account_group_filters = json.loads(os.getenv("ACCOUNT_GROUP_FILTER"))
 
     # lower case the filters for proper comparison
-    policy_type_filter = [policy_type.lower()
-                          for policy_type in policy_type_filters]
+    policy_type_filter = [policy_type.lower() for policy_type in policy_type_filters]
 
-    policy_sub_type_filter = [[policy_sub_type.lower()
-                              for policy_sub_type in filter] for filter in policy_sub_type_filters]
+    policy_sub_type_filter = [
+        [policy_sub_type.lower() for policy_sub_type in filter]
+        for filter in policy_sub_type_filters
+    ]
 
-    policy_severity_filter = [policy_severity.lower()
-                              for policy_severity in policy_severity_filters]
+    policy_severity_filter = [
+        policy_severity.lower() for policy_severity in policy_severity_filters
+    ]
 
-    account_group_filter = [account_group.lower()
-                            for account_group in account_group_filters]
+    account_group_filter = [
+        account_group.lower() for account_group in account_group_filters
+    ]
 
     try:
         rql_limit = int(os.getenv("RQL_LIMIT"))
@@ -102,8 +105,7 @@ def main(data="", context=""):
     ##########################################################################
     # Parse the RQL for a unique tag
 
-    logger.info("Parsing RQL query response for %s in the tags",
-                unique_attribute)
+    logger.info("Parsing RQL query response for %s in the tags", unique_attribute)
 
     tag_list = list()
 
@@ -111,16 +113,16 @@ def main(data="", context=""):
         for item in prisma_query_response:
             if "tags" in item["data"]:
                 if unique_attribute in item["data"]["tags"]:
-                    tag_list.append(
-                        item["data"]["tags"][unique_attribute])
+                    tag_list.append(item["data"]["tags"][unique_attribute])
 
     else:
         logger.info("The query,\n\t%s\ndid not return anything.", rql_query)
 
     unique_tags = list(set(tag_list))
 
-    logger.info("Found %i unique tags that match %s",
-                len(unique_tags), unique_attribute)
+    logger.info(
+        "Found %i unique tags that match %s", len(unique_tags), unique_attribute
+    )
 
     ###########################################################################
     #   Get existing alert rules in Prisma
@@ -140,8 +142,9 @@ def main(data="", context=""):
             keys = [k for k in alert_rule["target"]["tags"]]
             tags = {key["key"]: key["values"] for key in keys}
             if unique_attribute in tags:
-                auto_generated_alert_rule_tags.update({
-                    tags[unique_attribute][0]: alert_rule})
+                auto_generated_alert_rule_tags.update(
+                    {tags[unique_attribute][0]: alert_rule}
+                )
 
     ###########################################################################
     #   Grab all policies
@@ -151,7 +154,8 @@ def main(data="", context=""):
     #           Severity in ["low","medium","high","critical"]
 
     policy_response, status_code = prisma_get_policies(
-        prisma_token, detailed_compliance_mappings=False)
+        prisma_token, detailed_compliance_mappings=False
+    )
 
     if status_code == 200:
         policy_ids = list()
@@ -164,8 +168,9 @@ def main(data="", context=""):
             if str(policy["policyType"]).lower() in policy_type_filter:
                 matching_type = True
 
-            policy_sub_types = [policy_sub_type.lower()
-                                for policy_sub_type in policy["policySubTypes"]]
+            policy_sub_types = [
+                policy_sub_type.lower() for policy_sub_type in policy["policySubTypes"]
+            ]
 
             if policy_sub_types in policy_sub_type_filter:
                 matching_sub_type = True
@@ -177,16 +182,15 @@ def main(data="", context=""):
                 policy_ids.append(policy["policyId"])
     else:
         logger.error(
-            "Expected API Status Code: %d,\n\tGot %s instead.",
-            200,
-            status_code
+            "Expected API Status Code: %d,\n\tGot %s instead.", 200, status_code
         )
 
     ###########################################################################
     #   Grab the account group ID matching Azure Tenant Group
 
     account_group_response, status_code = prisma_get_account_groups(
-        prisma_token, exclude_cloud_account_details=True)
+        prisma_token, exclude_cloud_account_details=True
+    )
 
     if status_code == 200:
         account_group_ids = list()
@@ -196,13 +200,10 @@ def main(data="", context=""):
                 if str(account_group["name"]).lower() in account_group_filter:
                     account_group_ids.append(account_group["id"])
 
-                    account_group_filter.remove(
-                        str(account_group["name"]).lower())
+                    account_group_filter.remove(str(account_group["name"]).lower())
     else:
         logger.error(
-            "Expected API Status Code: %d,\n\tGot %s instead.",
-            200,
-            status_code
+            "Expected API Status Code: %d,\n\tGot %s instead.", 200, status_code
         )
 
     ###########################################################################
@@ -210,8 +211,7 @@ def main(data="", context=""):
 
     if not unique_tags:
         logger.info(
-            "No values for %s found to create Alert Rules for.",
-            unique_attribute
+            "No values for %s found to create Alert Rules for.", unique_attribute
         )
 
     for unique_tag in unique_tags:
@@ -226,35 +226,42 @@ def main(data="", context=""):
             #       one will be created.
             alert_rule_name = f"{automation_prefix}-{unique_tag}"
             description = f"Alert rule for {unique_attribute}"
-            tags = [{
-                "key": unique_attribute,
-                "values": [unique_tag]
-            }]
+            tags = [{"key": unique_attribute, "values": [unique_tag]}]
+            alert_rule_notification_config = [
+                {
+                    "enabled": True,
+                    "recipients": [f"{unique_tag}"],
+                    "type": "email",
+                    "detailedReport": False,
+                    "frequency": "as_it_happens",
+                }
+            ]
+            delay_notification_ms = 300000
+            notify_on_open = True
 
             # Create the Alert Rule
             create_alert_rule_response, status_code = prisma_create_alert_rule(
                 prisma_token,
+                alert_rule_notification_config=alert_rule_notification_config,
+                delay_notification_ms=delay_notification_ms,
+                notify_on_open=notify_on_open,
                 alert_rule_name=alert_rule_name,
                 description=description,
                 policies=policy_ids,
                 account_groups=account_group_ids,
-                tags=tags
+                tags=tags,
             )
 
             if status_code == 200:
-                logger.info("Successfully created the Alert Rule %s",
-                            alert_rule_name)
+                logger.info("Successfully created the Alert Rule %s", alert_rule_name)
             else:
                 logger.error(
-                    "Expected API Status Code: %d,\n\tGot %s instead.",
-                    200,
-                    status_code
+                    "Expected API Status Code: %d,\n\tGot %s instead.", 200, status_code
                 )
 
     if not auto_generated_alert_rule_tags:
         logger.info(
-            "No existing Alert Rules prefixed with %s to delete.",
-            automation_prefix
+            "No existing Alert Rules prefixed with %s to delete.", automation_prefix
         )
 
     for auto_generated_alert_rule in auto_generated_alert_rule_tags.items():
@@ -263,16 +270,17 @@ def main(data="", context=""):
         #       the alert rule will be removed
 
         delete_alert_rule_response, status_code = prisma_delete_alert_rule(
-            prisma_token, auto_generated_alert_rule[1]["policyScanConfigId"])
+            prisma_token, auto_generated_alert_rule[1]["policyScanConfigId"]
+        )
 
         if status_code == 204:
-            logger.info("Successfully deleted Alert Rule %s",
-                        auto_generated_alert_rule[1]["name"])
+            logger.info(
+                "Successfully deleted Alert Rule %s",
+                auto_generated_alert_rule[1]["name"],
+            )
         else:
             logger.error(
-                "Expected API Status Code: %d,\n\tGot %s instead.",
-                204,
-                status_code
+                "Expected API Status Code: %d,\n\tGot %s instead.", 204, status_code
             )
 
 
