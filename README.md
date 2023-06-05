@@ -32,6 +32,8 @@ This repository includes the scripts for syncing alert rules in Prisma and Docke
 
 ### Testing Azure Function
 
+* Add the following key value pair to `local.settings.json` in the `values` dict,
+  * `"AzureWebJobsStorage": "UseDevelopmentStorage=true"`
 * Make sure you have the `Azurite V3 extension` installed in VS Code.
 * Hit `F1` key to open the `VS Code Command Palette`.
 * Run the `Azurite: Start` command to begin the emulator for local Azure function testing.
