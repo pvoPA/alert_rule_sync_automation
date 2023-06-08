@@ -1,7 +1,7 @@
 import os
 import json
 import azure.functions as func
-import logging as logger
+import logging
 from helpers import generate_prisma_token
 from helpers import prisma_rql_query
 from helpers import prisma_get_alert_rules
@@ -9,6 +9,10 @@ from helpers import prisma_create_alert_rule
 from helpers import prisma_get_policies
 from helpers import prisma_get_account_groups
 from helpers import prisma_delete_alert_rule
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 app = func.FunctionApp()
 CRON_SCHEDULE = os.getenv("ALERT_RULE_SYNC_CRON_SCHEDULE")
@@ -253,6 +257,8 @@ def test_function(req: func.HttpRequest) -> func.HttpResponse:
             logger.error(
                 "Expected API Status Code: %d,\n\tGot %s instead.", 204, status_code
             )
+
+    return func.HttpResponse("This HTTP triggered function executed successfully.")
 
 
 # @app.function_name(name="AlertSyncAutomationFunction")
