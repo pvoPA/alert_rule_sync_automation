@@ -18,6 +18,7 @@ Before using these functions, be sure to configure the .env appropriately.
 import os
 import json
 import logging
+from typing import Tuple
 import requests
 from dotenv import load_dotenv
 
@@ -31,18 +32,20 @@ load_dotenv()
 CSPM_ENDPOINT = os.getenv("CSPM_API")
 
 
-def generate_prisma_token(access_key: str, secret_key: str) -> str:
+def prisma_login(access_key: str, secret_key: str) -> Tuple[dict, int]:
     """
     Generate the token for Prisma API access.
 
     https://pan.dev/prisma-cloud/api/cspm/app-login/
 
     Parameters:
-    access_key (str): Prisma generated access key
-    secret_key (str): Prisma generated secret key
+        access_key (str): Prisma generated access key
+        secret_key (str): Prisma generated secret key
 
     Returns:
-    str: Prisma token
+        Tuple[dict, int]:
+            Prisma token and tenant info
+            Response status code
 
     """
     endpoint = f"https://{CSPM_ENDPOINT}/login"
@@ -58,9 +61,12 @@ def generate_prisma_token(access_key: str, secret_key: str) -> str:
 
     response = requests.post(endpoint, headers=headers, json=body, timeout=360)
 
-    data = json.loads(response.text)
+    if response.status_code == 200:
+        data = json.loads(response.text)
 
-    return data["token"]
+        return data, 200
+    else:
+        return None, response.status_code
 
 
 def prisma_rql_query(token: str, query: str, time_range="", limit="") -> list:
@@ -99,15 +105,14 @@ def prisma_rql_query(token: str, query: str, time_range="", limit="") -> list:
 
     logger.info("Sending the following query to Prisma,\n\t%s", payload)
 
-    response = requests.post(endpoint, json=payload,
-                             headers=headers, timeout=360)
+    response = requests.post(endpoint, json=payload, headers=headers, timeout=360)
 
     data = json.loads(response.text)
 
     return data["data"]["items"]
 
 
-def prisma_get_alert_rules(token: str) -> list[dict]:
+def prisma_get_alert_rules(token: str) -> Tuple[list[dict], int]:
     """
     Returns all alert rules you have permission to see based on your role.
     The data returned does not include an open alerts count.
@@ -118,7 +123,7 @@ def prisma_get_alert_rules(token: str) -> list[dict]:
     token (str): Prisma token for API access.
 
     Returns:
-    list[dict]: List of alert rules.
+    Tuple[list[dict], int]: List of alert rules and response status code.
 
     """
     endpoint = f"https://{CSPM_ENDPOINT}/v2/alert/rule"
@@ -131,34 +136,81 @@ def prisma_get_alert_rules(token: str) -> list[dict]:
 
     response = requests.get(endpoint, headers=headers, timeout=360)
 
-    data = json.loads(response.text)
+    if response.status_code == 200:
+        data = json.loads(response.text)
 
-    return data
+        return data, 200
+    else:
+        return None, response.status_code
+
+
+def prisma_get_email_templates(token: str, tenant_id: str) -> Tuple[list[dict], int]:
+    """
+    Returns a list of notification templates.
+
+    The caller must have one of the following Prisma Cloud roles:
+
+    System Admin
+    Account Group Admin
+    Account and Cloud Provisioning Admin
+    Account Group Read Only
+
+    https://pan.dev/prisma-cloud/api/cspm/get-all-templates-v-1/
+
+    Parameters:
+        token (str): Prisma token for API access.
+        tenant_id (str): Prisma ID.
+            Your Prisma ID is available either from the response object
+            of your API request to log in or from the licensing information
+            in the Prisma Cloud console.
+
+    Returns:
+        Tuple[list[dict], int]:
+            List of notification templates
+            Response status code
+
+    """
+    endpoint = f"https://{CSPM_ENDPOINT}/api/v1/tenant/{tenant_id}/template"
+
+    headers = {
+        "accept": "application/json; charset=UTF-8",
+        "content-type": "application/json",
+        "x-redlock-auth": token,
+    }
+
+    response = requests.get(endpoint, headers=headers, timeout=360)
+
+    if response.status_code == 200:
+        data = json.loads(response.text)
+
+        return data, 200
+    else:
+        return None, response.status_code
 
 
 def prisma_create_alert_rule(
-        token: str,
-        alert_rule_name="",
-        description="",
-        alert_rule_notification_config=[],
-        delay_notification_ms=0,
-        enabled=True,
-        notify_on_dismissed=False,
-        notify_on_open=True,
-        notify_on_resolved=False,
-        notify_on_snoozed=False,
-        policies=[],
-        policy_labels=[],
-        scan_all=False,
-        account_groups=[],
-        excluded_accounts=[],
-        regions=[],
-        tags=[],
-        target_resource_list={},
-        alert_rule_policy_filer={},
-        compute_access_group_ids=[],
-        allow_auto_remediate=False
-) -> list[dict]:
+    token: str,
+    alert_rule_name="",
+    description="",
+    alert_rule_notification_config=[],
+    delay_notification_ms=0,
+    enabled=True,
+    notify_on_dismissed=False,
+    notify_on_open=True,
+    notify_on_resolved=False,
+    notify_on_snoozed=False,
+    policies=[],
+    policy_labels=[],
+    scan_all=False,
+    account_groups=[],
+    excluded_accounts=[],
+    regions=[],
+    tags=[],
+    target_resource_list={},
+    alert_rule_policy_filer={},
+    compute_access_group_ids=[],
+    allow_auto_remediate=False,
+) -> Tuple[list[dict], int]:
     """
     Creates an alert rule in Prisma.
 
@@ -209,7 +261,7 @@ def prisma_create_alert_rule(
             Defaults to False.
 
     Returns:
-        list[dict]: List of alert rules.
+        Tuple[list[dict], int]: List of alert rules and response status code.
     """
     endpoint = f"https://{CSPM_ENDPOINT}/alert/rule"
 
@@ -241,20 +293,14 @@ def prisma_create_alert_rule(
             "alertRulePolicyFilter": alert_rule_policy_filer,
             "includedResourceLists": {
                 "computeAccessGroupIds": compute_access_group_ids
-            }
+            },
         },
-        "allowAutoRemediate": allow_auto_remediate
+        "allowAutoRemediate": allow_auto_remediate,
     }
 
-    logger.info(
-        "Sending request to %s",
-        endpoint
-    )
+    logger.info("Sending request to %s with payload, \r\n%s", endpoint, payload)
 
-    response = requests.post(endpoint, json=payload,
-                             headers=headers, timeout=360)
-
-    data = json.loads(response.text)
+    response = requests.post(endpoint, json=payload, headers=headers, timeout=360)
 
     logger.info(
         "API returned %s",
@@ -262,15 +308,16 @@ def prisma_create_alert_rule(
     )
 
     if response.status_code == 200:
+        data = json.loads(response.text)
+
         return data, 200
     else:
         return None, response.status_code
 
 
 def prisma_get_policies(
-        token: str,
-        detailed_compliance_mappings=None
-) -> list[dict]:
+    token: str, detailed_compliance_mappings=None
+) -> Tuple[list[dict], int]:
     """
     Returns all available policies, both system default and custom.
     You can apply filters to narrow the returned policy list to a subset of policies or potentially to a specific policy.
@@ -284,7 +331,7 @@ def prisma_get_policies(
             Defaults to None.
 
     Returns:
-        list[dict]: list of policies
+        Tuple[list[dict], int]: list of policies and response status code.
     """
     endpoint = f"https://{CSPM_ENDPOINT}/v2/policy"
 
@@ -302,16 +349,9 @@ def prisma_get_policies(
         endpoint,
     )
 
-    response = requests.get(
-        endpoint,
-        headers=headers,
-        timeout=360
-    )
+    response = requests.get(endpoint, headers=headers, timeout=360)
 
-    logger.info(
-        "API returned %s",
-        response.status_code
-    )
+    logger.info("API returned %s", response.status_code)
 
     if response.status_code == 200:
         data = json.loads(response.text)
@@ -322,9 +362,8 @@ def prisma_get_policies(
 
 
 def prisma_get_account_groups(
-        token: str,
-        exclude_cloud_account_details=None
-) -> list[dict]:
+    token: str, exclude_cloud_account_details=None
+) -> Tuple[list[dict], int]:
     """
     Returns an array of accessible account groups.
 
@@ -336,7 +375,7 @@ def prisma_get_account_groups(
             Defaults to None.
 
     Returns:
-        list[dict]: list of account groups
+        Tuple[list[dict], int]: list of account groups and response status code.
     """
     endpoint = f"https://{CSPM_ENDPOINT}/cloud/group"
 
@@ -354,16 +393,9 @@ def prisma_get_account_groups(
         endpoint,
     )
 
-    response = requests.get(
-        endpoint,
-        headers=headers,
-        timeout=360
-    )
+    response = requests.get(endpoint, headers=headers, timeout=360)
 
-    logger.info(
-        "API returned %s",
-        response.status_code
-    )
+    logger.info("API returned %s", response.status_code)
 
     if response.status_code == 200:
         data = json.loads(response.text)
@@ -373,10 +405,7 @@ def prisma_get_account_groups(
         return None, response.status_code
 
 
-def prisma_delete_alert_rule(
-        token: str,
-        alert_rule_id: str
-) -> list:
+def prisma_delete_alert_rule(token: str, alert_rule_id: str) -> Tuple[None, int]:
     """
     Deletes the alert rule that has the specified ID.
 
@@ -387,7 +416,7 @@ def prisma_delete_alert_rule(
         alert_rule_id (str): Alert rule ID (also known as the "policyScanConfigId")
 
     Returns:
-        _type_: _description_
+        Tuple[list, int]: None, response status code.
     """
     endpoint = f"https://{CSPM_ENDPOINT}/alert/rule/{alert_rule_id}"
 
@@ -402,17 +431,9 @@ def prisma_delete_alert_rule(
         endpoint,
     )
 
-    response = requests.delete(
-        endpoint,
-        headers=headers,
-        timeout=360
-    )
+    response = requests.delete(endpoint, headers=headers, timeout=360)
 
-    logger.info(
-        "API returned %s - %s",
-        response.status_code,
-        response.text
-    )
+    logger.info("API returned %s - %s", response.status_code, response.text)
 
     if response.status_code == 204:
         return None, 204
