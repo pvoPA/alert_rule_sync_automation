@@ -55,7 +55,10 @@ def test_function(req: func.HttpRequest) -> func.HttpResponse:
     include_detailed_report = ast.literal_eval(
         os.getenv("EMAIL_INCLUDE_DETAILED_REPORT")
     )
-    email_frequency = os.getenv("EMAIL_REOCCURING_FREQUENCY")
+    email_frequency_config = os.getenv("EMAIL_FREQUENCY")
+    email_timezone = os.getenv("EMAIL_TIMEZONE")
+
+    email_frequency = f"DTSTART;TZID={email_timezone}:20230601T000000\n{email_frequency_config}"
     email_template_name = os.getenv("EMAIL_TEMPLATE_NAME")
     auto_remediate_alerts = ast.literal_eval(os.getenv("AUTO_REMEDIATE"))
 
