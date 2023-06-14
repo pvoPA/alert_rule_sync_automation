@@ -57,8 +57,10 @@ def test_function(req: func.HttpRequest) -> func.HttpResponse:
     )
     email_frequency_config = os.getenv("EMAIL_FREQUENCY")
     email_timezone = os.getenv("EMAIL_TIMEZONE")
+    email_frequency = (
+        f"DTSTART;TZID={email_timezone}:20230601T000000\n{email_frequency_config}"
+    )
 
-    email_frequency = f"DTSTART;TZID={email_timezone}:20230601T000000\n{email_frequency_config}"
     email_template_name = os.getenv("EMAIL_TEMPLATE_NAME")
     auto_remediate_alerts = ast.literal_eval(os.getenv("AUTO_REMEDIATE"))
 
@@ -306,12 +308,14 @@ def test_function(req: func.HttpRequest) -> func.HttpResponse:
                 {
                     "enabled": True,
                     "recipients": [f"{unique_tag}"],
-                    "withCompression": email_compressed,
-                    "includeRemediation": email_include_remediation,
                     "type": "email",
                     "detailedReport": include_detailed_report,
+                    "withCompression": email_compressed,
+                    "includeRemediation": email_include_remediation,
                 }
             ]
+
+            target_resource_list = {"reason": "", "enabled": False, "ids": []}
 
             if email_template_id:
                 alert_rule_notification_config[0].update(
@@ -334,6 +338,7 @@ def test_function(req: func.HttpRequest) -> func.HttpResponse:
                 prisma_token,
                 alert_rule_notification_config=alert_rule_notification_config,
                 delay_notification_ms=delay_notification_ms,
+                target_resource_list=target_resource_list,
                 notify_on_open=notify_on_open,
                 alert_rule_name=alert_rule_name,
                 description=description,

@@ -312,6 +312,9 @@ def prisma_create_alert_rule(
 
         return data, 200
     else:
+        if "x-redlock-status" in response.headers:
+            logger.error(response.headers["x-redlock-status"])
+
         return None, response.status_code
 
 

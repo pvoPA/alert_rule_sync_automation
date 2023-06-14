@@ -78,7 +78,12 @@ def main(data="", context=""):
     include_detailed_report = ast.literal_eval(
         os.getenv("EMAIL_INCLUDE_DETAILED_REPORT")
     )
-    email_frequency = os.getenv("EMAIL_REOCCURING_FREQUENCY")
+    email_frequency_config = os.getenv("EMAIL_FREQUENCY")
+    email_timezone = os.getenv("EMAIL_TIMEZONE")
+    email_frequency = (
+        f"DTSTART;TZID={email_timezone}:20230601T000000\n{email_frequency_config}"
+    )
+
     email_template_name = os.getenv("EMAIL_TEMPLATE_NAME")
     auto_remediate_alerts = ast.literal_eval(os.getenv("AUTO_REMEDIATE"))
 
@@ -327,12 +332,14 @@ def main(data="", context=""):
                     "enabled": True,
                     # "recipients": [f"{unique_tag}"],
                     "recipients": ["testemail@email.com"],
-                    "withCompression": email_compressed,
-                    "includeRemediation": email_include_remediation,
                     "type": "email",
                     "detailedReport": include_detailed_report,
+                    "withCompression": email_compressed,
+                    "includeRemediation": email_include_remediation,
                 }
             ]
+
+            target_resource_list = {"reason": "", "enabled": False, "ids": []}
 
             if email_template_id:
                 alert_rule_notification_config[0].update(
@@ -340,6 +347,7 @@ def main(data="", context=""):
                 )
 
             if email_frequency:
+                # "rruleSchedule": "DTSTART;TZID=America/Los_Angeles:20230601T000000\nBYHOUR=0;BYMINUTE=0;BYSECOND=0;FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1",
                 alert_rule_notification_config[0].update(
                     {"rruleSchedule": email_frequency}
                 )
@@ -355,6 +363,7 @@ def main(data="", context=""):
                 prisma_token,
                 alert_rule_notification_config=alert_rule_notification_config,
                 delay_notification_ms=delay_notification_ms,
+                target_resource_list=target_resource_list,
                 notify_on_open=notify_on_open,
                 alert_rule_name=alert_rule_name,
                 description=description,
@@ -366,6 +375,8 @@ def main(data="", context=""):
 
             if status_code == 200:
                 logger.info("Successfully created the Alert Rule %s", alert_rule_name)
+
+                logger.info(create_alert_rule_response)
             elif status_code == 401:
                 logger.error(
                     "Prisma token timed out, generating a new one and continuing."
