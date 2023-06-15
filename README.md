@@ -23,11 +23,7 @@ This repository includes the scripts for syncing alert rules in Prisma and Docke
   * Name of the Function
   * Cloud Region for the Function
 * Under the `Workspace` tab, Deploy the `Local Project` to Azure pointing to the newly created function app.
-* Add the following environment variable to the new function app in Azure under `Configuration`
-  * `AzureWebJobsFeatureFlags` = `EnableWorkerIndexing` 
-* You can configure the environment variables 1 of 2 ways,
-  * Renaming `.env.template` to `.env`
-  * Adding all the variables in `.env.template` to `Application Settings` in Azure.
+* Copy the `azure-function-configurations.json` contents to the new Function App in `Configuration` using the `advanced edit`.
 
 
 ### Testing Azure Function

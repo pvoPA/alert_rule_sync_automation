@@ -11,7 +11,7 @@
     },
     {
         "name": "ALERT_RULE_SYNC_CRON_SCHEDULE",
-        "value": "0 0 12 * *?",
+        "value": "0 0 * * *",
         "slotSetting": false
     },
     {

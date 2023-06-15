@@ -24,9 +24,13 @@ CRON_SCHEDULE = os.getenv("ALERT_RULE_SYNC_CRON_SCHEDULE")
 # Get started by running the following code to create a function using a HTTP trigger.
 
 
-@app.function_name(name="AlertRuleSyncAutomation")
-@app.route(route="hello", auth_level=func.AuthLevel.ANONYMOUS)
-def test_function(req: func.HttpRequest) -> func.HttpResponse:
+@app.function_name(name="AlertSyncAutomationFunctionTimerTrigger")
+@app.schedule(
+    schedule=CRON_SCHEDULE, arg_name="timer", run_on_startup=False, use_monitor=True
+)
+def alert_rule_sync_automation_timer_trigger(
+    timer: func.TimerRequest,
+):
     """
     Run the alert rule sync automation.
 
@@ -388,19 +392,3 @@ def test_function(req: func.HttpRequest) -> func.HttpResponse:
             logger.error(
                 "Expected API Status Code: %d,\n\tGot %s instead.", 204, status_code
             )
-
-    return func.HttpResponse("This HTTP triggered function executed successfully.")
-
-
-# @app.function_name(name="AlertSyncAutomationFunction")
-# @app.schedule(schedule=CRON_SCHEDULE, arg_name="timer", run_on_startup=False, use_monitor=True)
-# def alert_rule_sync_automation(timer: func.TimerRequest):
-#     """
-#     Run the alert rule sync automation.
-
-#     Parameters:
-#         data: required for Azure function deployment
-#         context: required for Azure function deployment
-
-#     Returns:
-#         None
