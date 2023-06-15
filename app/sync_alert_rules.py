@@ -286,7 +286,7 @@ def main(data="", context=""):
 
     if status_code == 200:
         for email_template in email_template_response:
-            if str(email_template["name"]).lower() == email_template_name:
+            if str(email_template["name"]).lower() == str(email_template_name).lower():
                 email_template_id = email_template["id"]
                 email_template_found = True
                 break
